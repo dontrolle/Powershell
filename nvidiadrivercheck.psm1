@@ -1,29 +1,31 @@
-$NvidiaDriverSearchString = "*nvidia Geforce GTX 970*"
+#Requires -Module AngleParse
 
-$NvidiaDriverWebsite = "http://www.nvidia.com/Download/processDriver.aspx?psid=98&pfid=756&rpf=1&osid=57&lid=1&lang=en-us&ctk=0"
+# To get AngleParse - see https://github.com/kamome283/AngleParse
+
+# TODO Fill in the Devicename of your NVidia graphic card as reported by Get-CimInstance win32_pnpSignedDriver | Select-Object Devicename, driverversion here
+$NvidiaDeviceName = "" 
+
+# TODO Fill in the page that the https://www.nvidia.com/Download/index.aspx site searches for the drivers
+# looks something like https://www.nvidia.com/Download/processDriver.aspx?psid=...&pfid=...&rpf=..&osid=..&lid=..&lang=en-us&ctk=..&dtid=..&dtcid=..
+$NvidiaDriverSearchWebsite = ""
 
 function Find-NvidiaDriverPage()
 {
     [OutputType([String])]
     Param()
 
-    $ns = Invoke-WebRequest -Uri $NvidiaDriverWebsite 
-    return $ns.ParsedHtml.body.innerText
-
-# actual download button link
-#    http://www.nvidia.com/content/DriverDownload-March2009/confirmation.php?url=/Windows/375.70/375.70-desktop-win10-64bit-international-whql.exe&lang=us&type=GeForce
-
-# actual download link
-#    http://us.download.nvidia.com/Windows/375.70/375.70-desktop-win10-64bit-international-whql.exe
+    $ns = Invoke-WebRequest -Uri $NvidiaDriverSearchWebsite
+    return $ns.Content
 }
 
 function Get-NvidiaInstalledVersion{
     [OutputType([int])]
     Param()
 
-    $installedDriverVersion = (Get-WmiObject Win32_PnPSignedDriver| select devicename, driverversion | where {$_.devicename -like $NvidiaDriverSearchString}).driverversion;
+    $installedDriverVersion = (Get-CimInstance win32_pnpSignedDriver | Select-Object Devicename, driverversion | Where-Object { $_.devicename -like $NvidiaDeviceName }).driverversion;
     # results in smth like
     # 21.21.13.7557
+    # now we pick out the last five digits, which match the ones reported by the driver-version in Windows
     $installedString = ($installedDriverVersion -replace "\.").Substring(5,5);
     $installed = $installedString -as [int]
     if($installed -is [int]){
@@ -39,10 +41,12 @@ function Get-NvidiaAvailableVersion{
     Param ([string] $driverPage)
 
     $page = Invoke-WebRequest $driverPage
-    # results in smth like
+    # following results in smth like
     # 375.57&nbsp;&nbsp;<B><SUP>WHQL</SUP></B>
-    $avaitrimmed = ($page.ParsedHtml.GetElementById("tdVersion").firstChild().data -replace "\.").Trim()
-    $available = $avaitrimmed -as [int]
+    $avaitrimmed = ($page | Select-HtmlContent "#tdVersion").trim()
+    # now we pick the five digits
+    $avainumber = ($avaitrimmed -replace "\.").substring(0,5)
+    $available = $avainumber -as [int]
     if($available -is [int]){
         return $available
     }
