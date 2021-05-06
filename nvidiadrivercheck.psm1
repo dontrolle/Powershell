@@ -1,20 +1,25 @@
 #Requires -Module AngleParse
-
 # To get AngleParse - see https://github.com/kamome283/AngleParse
 
-# TODO Fill in the Devicename of your NVidia graphic card as reported by Get-CimInstance win32_pnpSignedDriver | Select-Object Devicename, driverversion here
-$NvidiaDeviceName = "" 
+param(
 
-# TODO Fill in the page that the https://www.nvidia.com/Download/index.aspx site searches for the drivers
-# looks something like https://www.nvidia.com/Download/processDriver.aspx?psid=...&pfid=...&rpf=..&osid=..&lid=..&lang=en-us&ctk=..&dtid=..&dtcid=..
-$NvidiaDriverSearchWebsite = ""
+    # Supply the Devicename of your NVidia graphic card as reported by 
+    #   Get-CimInstance win32_pnpSignedDriver | Select-Object Devicename
+    [parameter(Position=0,Mandatory=$true)][string]$NvidiaDeviceName,
+    
+    # Supply the page that the https://www.nvidia.com/Download/index.aspx site searches for drivers for the 
+    # NVidia graphic card that you are checking for.
+    # Looks something like https://www.nvidia.com/Download/processDriver.aspx?psid=...&pfid=...&rpf=..&osid=..&lid=..&lang=en-us&ctk=..&dtid=..&dtcid=..
+    [parameter(Position=1,Mandatory=$true)][string]$NvidiaDriverUrl
+)
+
 
 function Find-NvidiaDriverPage()
 {
     [OutputType([String])]
     Param()
 
-    $ns = Invoke-WebRequest -Uri $NvidiaDriverSearchWebsite
+    $ns = Invoke-WebRequest -Uri $NvidiaDriverUrl
     return $ns.Content
 }
 
@@ -32,8 +37,8 @@ function Get-NvidiaInstalledVersion{
         return $installed
     }
 
-    $Error = New-Object System.InvalidOperationException "Driver version parsing failed; best effort found '$installedString', which could not be parsed as a version number."
-    Throw $Error
+    $ErrorMessage = New-Object System.InvalidOperationException "Driver version parsing failed; best effort found '$installedString', which could not be parsed as a version number."
+    Throw $ErrorMessage
 }
 
 function Get-NvidiaAvailableVersion{
@@ -51,8 +56,8 @@ function Get-NvidiaAvailableVersion{
         return $available
     }
 
-    $Error = New-Object System.InvalidOperationException "Screen-scraping for available version failed. Best effort found '$avaitrimmed', which could not be parsed as a version-number."
-    Throw $Error
+    $ErrorMessage = New-Object System.InvalidOperationException "Screen-scraping for available version failed. Best effort found '$avaitrimmed', which could not be parsed as a version-number."
+    Throw $ErrorMessage
 }
 
 <# 
@@ -94,7 +99,7 @@ function Test-NvidiaDriver{
     if($avai -gt $inst){
         Write-Host "It looks like there's a more recent driver available at $driverPage"
         Set-Clipboard $driverPage
-        Write-Host "Download url copied to clipboard; paste in browser to download."        
+        Write-Host "Download url copied to clipboard; paste in browser to download."
     }
     else {
         Write-Host "It looks like your drivers are up-to-date."
