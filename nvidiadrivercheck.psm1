@@ -6,7 +6,7 @@ param(
     # Supply the Devicename of your NVidia graphic card as reported by 
     #   Get-CimInstance win32_pnpSignedDriver | Select-Object Devicename
     [parameter(Position=0,Mandatory=$true)][string]$NvidiaDeviceName,
-    
+
     # Supply the page that the https://www.nvidia.com/Download/index.aspx site searches for drivers for the 
     # NVidia graphic card that you are checking for.
     # Looks something like https://www.nvidia.com/Download/processDriver.aspx?psid=...&pfid=...&rpf=..&osid=..&lid=..&lang=en-us&ctk=..&dtid=..&dtcid=..
@@ -19,8 +19,11 @@ function Find-NvidiaDriverPage()
     [OutputType([String])]
     Param()
 
-    $ns = Invoke-WebRequest -Uri $NvidiaDriverUrl
-    return $ns.Content
+    $ns = (Invoke-WebRequest -Uri $NvidiaDriverUrl).Content
+
+    Write-Debug "Found driver page at: $ns"
+
+    return $ns
 }
 
 function Get-NvidiaInstalledVersion{
@@ -60,33 +63,89 @@ function Get-NvidiaAvailableVersion{
     Throw $ErrorMessage
 }
 
+function Get-DirectDownloadLink{
+    [OutputType([string])]
+    Param ([string] $driverDownloadPage)
+
+    Write-Debug "Accessing $driverDownloadPage to get link to confirmation page"
+    $downloadPage = Invoke-WebRequest $driverDownloadPage
+
+    #get confirmation page link
+    $confirmationUrl = "https://www.nvidia.com/" + ($downloadPage | Select-HtmlContent "#lnkDwnldBtn", ([AngleParse.Attr]::Href))
+    Write-Debug "Found URL for confirmation page: $confirmationUrl"
+
+    $confirmationPage = Invoke-WebRequest $confirmationUrl
+
+    $href = $confirmationPage | Select-HtmlContent "#mainContent > table > tbody > tr > td > a", ([AngleParse.Attr]::Href)
+    $fixupHref = "https:$href"
+
+    Write-Debug "Found URL for drivers at: $fixupHref"
+    return $fixupHref
+}
+
+function Get-Driver{
+    [OutputType([string])]
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]
+        $DownloadUrl,
+        [Parameter(Mandatory=$true)]
+        [string]
+        $DownloadDirectory
+    )
+
+    $filename = $downloadUrl.Split("/")[-1]
+    $downloadPath = Join-Path -Path $downloadDirectory -ChildPath $filename
+
+    Start-BitsTransfer $downloadUrl $downloadPath
+
+    return $downloadPath
+}
+
 <# 
  .Synopsis
-  Checks local version of NVIDIA display driver version (for a hardcoded graphics driver)
-  against the version available on NVIDIAs website (against a hardcoded URI).
+  Checks local version of NVIDIA display driver version (for a graphics driver given as argument for the module)
+  against the version available on NVIDIAs website (against a driver search URI given as argument for the module).
 
   Beware - screenscraping, FTW.
 
  .Description
-  Checks local version of NVIDIA display driver version (for a hardcoded graphics driver)
-  against the version available on NVIDIAs website (against a hardcoded URI).
+  Checks local version of NVIDIA display driver version (for a graphics driver given as argument for the module)
+  against the version available on NVIDIAs website (against a driver search URI given as argument for the module).
 
-  If a possible new version is found, the download uri is printed and copied to the 
-  clipboard for manual download and installation.
+  If a possible new version is found, by default the download URL for the drivers are copied to the 
+  clipboard for manual download and installation. If the -Download switch is given, the drivers are downloaded 
+  directly to your Downloads folder.
 
   Beware - screenscraping, FTW.
 
  .Example
-   # Check driver version with minimal output.
-   Test-NvidiaDriver
+    Test-NvidiaDriver
+
+    Checks driver version with minimal output. If new drivers are found, the download URL for the drivers are copied to the 
+  clipboard for manual download and installation.
+   
 
  .Example
-   # Check driver version with debug output.
-   Test-NvidiaDriver -Debug
+    Test-NvidiaDriver -Debug
+ 
+    Checks driver version with debug output. If new drivers are found, the download URL for the drivers are copied to the 
+  clipboard for manual download and installation.
+   
+
+ .Example
+    Test-NvidiaDriver -Download
+
+    Checks driver version and downloads drivers to Downloads folder, if new are found.
 #>
 function Test-NvidiaDriver{
-    [cmdletbinding()]
-    Param()
+    [CmdletBinding()]
+    param (
+        # If given, downloads the drivers directly to your Downloads folder
+        [Parameter()]
+        [Switch]
+        $Download = $false
+    )
 
     $driverPage = Find-NvidiaDriverPage
   
@@ -97,9 +156,18 @@ function Test-NvidiaDriver{
     Write-Debug "Found install version: $inst"
 
     if($avai -gt $inst){
-        Write-Host "It looks like there's a more recent driver available at $driverPage"
-        Set-Clipboard $driverPage
-        Write-Host "Download url copied to clipboard; paste in browser to download."
+        Write-Host "It looks like there's a more recent driver available."
+        $driverDownloadUrl = Get-DirectDownloadLink $driverPage
+        if($Download){
+            $downloadsDirectory = (New-Object -ComObject Shell.Application).NameSpace('shell:Downloads').Self.Path            
+            Write-Host "Downloading to your Downloads folder at $downloadsDirectory"
+            $downloadPath = Get-Driver -DownloadUrl $driverDownloadUrl -DownloadDirectory $downloadsDirectory
+            Write-Host "File downloaded to $downloadPath"
+        }
+        else{
+            Set-Clipboard $driverDownloadUrl
+            Write-Host "Download url copied to clipboard; enter in browser to download manually."
+        }
     }
     else {
         Write-Host "It looks like your drivers are up-to-date."
