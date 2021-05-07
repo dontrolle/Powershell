@@ -13,6 +13,8 @@ param(
     [parameter(Position=1,Mandatory=$true)][string]$NvidiaDriverUrl
 )
 
+# dot source AngleParseExtensions (expects it to be in same folder as this module, as it is in this repo)
+. "$PSScriptRoot/AngleParseExtensions.ps1"
 
 function Find-NvidiaDriverPage()
 {
@@ -25,6 +27,46 @@ function Find-NvidiaDriverPage()
 
     return $ns
 }
+
+# function Find-NvidiaDriverPage()
+# {
+#     [OutputType([String])]
+#     Param()
+
+#     $NvidiaDownloadDriversPageUrl = "https://www.nvidia.com/Download/index.aspx"
+#     $NvidiaSearchDriverUrlFormatString = "https://www.nvidia.com/Download/processDriver.aspx?psid={0}&pfid={1}&rpf={2}&osid={3}&lid={4}&dtid={5}"
+
+#     $ProductType = "GeForce"
+#     $ProductSeries = "GeForce RTX 30 Series"
+#     $Product = "GeForce RTX 3080"
+#     $OperatingSystem = "Windows 10 64-bit"
+#     $DownloadType = "Game Ready Driver (GRD)"
+#     $Language = "English (US)"
+    
+#     ## PROBLEM: NVidia driver Download page uses javascript to update selects dependent on each other...
+
+#     $downloadPage = Invoke-WebRequest -Uri $NvidiaDownloadDriversPageUrl
+
+#     $pt = Get-SelectOptionValue -Html $downloadPage -SelectId "selProductSeriesType" -OptionText $ProductType
+#     Write-Host "Found value $pt for $ProductType"
+
+#     $ps = Get-SelectOptionValue -Html $downloadPage -SelectId "selProductSeries" -OptionText $ProductSeries
+#     Write-Host "Found value $ps for $ProductSeries"
+
+#     $p = Get-SelectOptionValue -Html $downloadPage -SelectId "selProductFamily" -OptionText $Product
+#     Write-Host "Found value $p for $Product"
+
+#     $os = Get-SelectOptionValue -Html $downloadPage -SelectId "selOperatingSystem" -OptionText $OperatingSystem
+#     Write-Host "Found value $os for $OperatingSystem"
+
+#     $dt = Get-SelectOptionValue -Html $downloadPage -SelectId "ddlDownloadTypeCrdGrd" -OptionText $DownloadType
+#     Write-Host "Found value $dt for $DownloadType"
+
+#     $l = Get-SelectOptionValue -Html $downloadPage -SelectId "ddlLanguage" -OptionText $Language
+#     Write-Host "Found value $l for $Language"
+
+#     return ""
+# }
 
 function Get-NvidiaInstalledVersion{
     [OutputType([int])]
