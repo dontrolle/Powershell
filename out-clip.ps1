@@ -17,7 +17,7 @@
 .EXAMPLE 
     dir *somepattern* | Out-Clip somefile -verbose
 .NOTES
-    Author     : Troels Damgaard (Edlunds A/S)
+    Author     : Troels Damgaard
 #>
 function Out-Clip
 {
