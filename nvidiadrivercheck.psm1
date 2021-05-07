@@ -1,72 +1,127 @@
 #Requires -Module AngleParse
 # To get AngleParse - see https://github.com/kamome283/AngleParse
 
+# Example usage:
+# 
+# $ProductType = "GeForce"
+# $ProductSeries = "GeForce RTX 30 Series"
+# $Product = "GeForce RTX 3080"
+# $OperatingSystem = "Windows 10 64-bit"
+# $DownloadType = "Game Ready Driver (GRD)"
+# $Language = "English (US)"
+# Import-Module -Name ".\nvidiadrivercheck.psm1" -ArgumentList "NVIDIA GeForce RTX 3080", $ProductType, $ProductSeries, $Product, $OperatingSystem, $DownloadType, $Language
+
 param(
 
     # Supply the Devicename of your NVidia graphic card as reported by 
     #   Get-CimInstance win32_pnpSignedDriver | Select-Object Devicename
     [parameter(Position=0,Mandatory=$true)][string]$NvidiaDeviceName,
 
-    # Supply the page that the https://www.nvidia.com/Download/index.aspx site searches for drivers for the 
-    # NVidia graphic card that you are checking for.
-    # Looks something like https://www.nvidia.com/Download/processDriver.aspx?psid=...&pfid=...&rpf=..&osid=..&lid=..&lang=en-us&ctk=..&dtid=..&dtcid=..
-    [parameter(Position=1,Mandatory=$true)][string]$NvidiaDriverUrl
+    # Supply the string-values for the all the options for your card in the dropdown
+    # at https://www.nvidia.com/Download/index.aspx 
+    [parameter(Position=1,Mandatory=$true)][string]$ProductType,
+    [parameter(Position=2,Mandatory=$true)][string]$ProductSeries,
+    [parameter(Position=3,Mandatory=$true)][string]$Product,
+    [parameter(Position=4,Mandatory=$true)][string]$OperatingSystem,
+    [parameter(Position=5,Mandatory=$true)][string]$DownloadType,
+    [parameter(Position=6,Mandatory=$true)][string]$Language
 )
 
-# dot source AngleParseExtensions (expects it to be in same folder as this module, as it is in this repo)
-. "$PSScriptRoot/AngleParseExtensions.ps1"
+function Get-SelectOptionValue() {
+    param (
+        # HTML to look for select in
+        [Parameter(Mandatory)]
+        [String]
+        $Html,
+        # HTML id of select
+        [Parameter(Mandatory)]
+        [String]
+        $SelectId,
+        # text value of select option to return value for
+        [Parameter(Mandatory)]
+        [String]
+        $OptionText
+    )
 
-function Find-NvidiaDriverPage()
+    return (($HTML | Select-HtmlContent "#$SelectId", ([AngleParse.Attr]::Element)).Options | Where-Object { $_.Text -eq $OptionText }).Value
+}
+
+function Get-ApiLookupValue(){
+    param (
+        [Parameter(Mandatory)]
+        [String]
+        $Page,
+        [Parameter(Mandatory)]
+        [String]
+        $Name
+    )
+
+    return ($Page | Select-Xml -XPath "//LookupValue[Name='$Name']").Node.Value
+}
+
+$NvidiaDownloadPage = "https://www.nvidia.com/Download/index.aspx"
+$NvidiaSearchDriverUrlFormatString = "https://www.nvidia.com/Download/processDriver.aspx?psid={0}&pfid={1}&rpf=1&osid={2}&lid={3}&dtid={4}"
+$ApiLookupPage = "https://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeId={0}"
+
+function Find-NvidiaDriverSearchPage()
 {
     [OutputType([String])]
     Param()
-
-    $ns = (Invoke-WebRequest -Uri $NvidiaDriverUrl).Content
-
-    Write-Debug "Found driver page at: $ns"
-
-    return $ns
-}
-
-# function Find-NvidiaDriverPage()
-# {
-#     [OutputType([String])]
-#     Param()
-
-#     $NvidiaDownloadDriversPageUrl = "https://www.nvidia.com/Download/index.aspx"
-#     $NvidiaSearchDriverUrlFormatString = "https://www.nvidia.com/Download/processDriver.aspx?psid={0}&pfid={1}&rpf={2}&osid={3}&lid={4}&dtid={5}"
-
-#     $ProductType = "GeForce"
-#     $ProductSeries = "GeForce RTX 30 Series"
-#     $Product = "GeForce RTX 3080"
-#     $OperatingSystem = "Windows 10 64-bit"
-#     $DownloadType = "Game Ready Driver (GRD)"
-#     $Language = "English (US)"
     
-#     ## PROBLEM: NVidia driver Download page uses javascript to update selects dependent on each other...
+    $ptPage = Invoke-WebRequest -Uri ($ApiLookupPage -f 1)
+    $pt = Get-ApiLookupValue -Page $ptPage -Name $ProductType
+    Write-Debug "Found value $pt for $ProductType"
+    if(!$pt)
+    {
+        Throw "Found no value for $ProductType"
+    }
 
-#     $downloadPage = Invoke-WebRequest -Uri $NvidiaDownloadDriversPageUrl
+    $psPage = Invoke-WebRequest -Uri ("$ApiLookupPage&ParentID=$pt" -f 2)
+    $ps = Get-ApiLookupValue -Page $psPage -Name $ProductSeries
+    Write-Debug "Found value $ps for $ProductSeries"
+    if(!$ps)
+    {
+        Throw "Found no value for $ProductSeries"
+    }    
 
-#     $pt = Get-SelectOptionValue -Html $downloadPage -SelectId "selProductSeriesType" -OptionText $ProductType
-#     Write-Host "Found value $pt for $ProductType"
+    $pPage = Invoke-WebRequest -Uri ("$ApiLookupPage&ParentID=$ps" -f 3)
+    $p = Get-ApiLookupValue -Page $pPage -Name $Product
+    Write-Debug "Found value $p for $Product"
+    if(!$p)
+    {
+        Throw "Found no value for $Product"
+    }
 
-#     $ps = Get-SelectOptionValue -Html $downloadPage -SelectId "selProductSeries" -OptionText $ProductSeries
-#     Write-Host "Found value $ps for $ProductSeries"
+    $osPage = Invoke-WebRequest -Uri ("$ApiLookupPage&ParentID=$ps" -f 4)
+    $os = Get-ApiLookupValue -Page $osPage -Name $OperatingSystem
+    Write-Debug "Found value $os for $OperatingSystem"
+    if(!$os)
+    {
+        Throw "Found no value for $OperatingSystem"
+    }
 
-#     $p = Get-SelectOptionValue -Html $downloadPage -SelectId "selProductFamily" -OptionText $Product
-#     Write-Host "Found value $p for $Product"
+    $downloadPage = Invoke-WebRequest -Uri $NvidiaDownloadPage
+    $dt = Get-SelectOptionValue -Html $downloadPage -SelectId "ddlDownloadTypeCrdGrd" -OptionText $DownloadType
+    Write-Debug "Found value $dt for $DownloadType"
+    if(!$dt)
+    {
+        Throw "Found no value for $DownloadType"
+    }
 
-#     $os = Get-SelectOptionValue -Html $downloadPage -SelectId "selOperatingSystem" -OptionText $OperatingSystem
-#     Write-Host "Found value $os for $OperatingSystem"
+    $lPage = Invoke-WebRequest -Uri ("$ApiLookupPage&ParentID=$ps" -f 5)
+    $l = Get-ApiLookupValue -Page $lPage -Name $Language
+    Write-Debug "Found value $l for $Language"
+    if(!$l)
+    {
+        Throw "Found no value for $Language"
+    }    
 
-#     $dt = Get-SelectOptionValue -Html $downloadPage -SelectId "ddlDownloadTypeCrdGrd" -OptionText $DownloadType
-#     Write-Host "Found value $dt for $DownloadType"
+    $completeSearchString = $NvidiaSearchDriverUrlFormatString -f $ps,$p,$os,$dt,$l
 
-#     $l = Get-SelectOptionValue -Html $downloadPage -SelectId "ddlLanguage" -OptionText $Language
-#     Write-Host "Found value $l for $Language"
+    Write-Debug "Constructed NVidia driver search URI: $completeSearchString"
 
-#     return ""
-# }
+    return $completeSearchString
+}
 
 function Get-NvidiaInstalledVersion{
     [OutputType([int])]
@@ -149,7 +204,7 @@ function Get-Driver{
   Checks local version of NVIDIA display driver version (for a graphics driver given as argument for the module)
   against the version available on NVIDIAs website (against a driver search URI given as argument for the module).
 
-  Beware - screenscraping, FTW.
+  WARNING - relies on undocumented APIs and screenscraping, FTW!
 
  .Description
   Checks local version of NVIDIA display driver version (for a graphics driver given as argument for the module)
@@ -159,7 +214,7 @@ function Get-Driver{
   clipboard for manual download and installation. If the -Download switch is given, the drivers are downloaded 
   directly to your Downloads folder.
 
-  Beware - screenscraping, FTW.
+  WARNING - relies on undocumented APIs and screenscraping, FTW!
 
  .Example
     Test-NvidiaDriver
@@ -189,7 +244,9 @@ function Test-NvidiaDriver{
         $Download = $false
     )
 
-    $driverPage = Find-NvidiaDriverPage
+    $driverSearchPage = Find-NvidiaDriverSearchPage
+    
+    $driverPage = (Invoke-WebRequest -Uri $driverSearchPage).Content
   
     $avai = Get-NvidiaAvailableVersion -driverPage $driverPage
     Write-Debug "Found available version: $avai"
