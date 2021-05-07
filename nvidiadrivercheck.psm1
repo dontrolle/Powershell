@@ -13,7 +13,7 @@
 
 param(
 
-    # Supply the Devicename of your NVidia graphic card as reported by 
+    # Supply the Devicename of your NVIDIA graphic card as reported by 
     #   Get-CimInstance win32_pnpSignedDriver | Select-Object Devicename
     [parameter(Position=0,Mandatory=$true)][string]$NvidiaDeviceName,
 
@@ -118,7 +118,7 @@ function Find-NvidiaDriverSearchPage()
 
     $completeSearchString = $NvidiaSearchDriverUrlFormatString -f $ps,$p,$os,$dt,$l
 
-    Write-Debug "Constructed NVidia driver search URI: $completeSearchString"
+    Write-Debug "Constructed NVIDIA driver search URI: $completeSearchString"
 
     return $completeSearchString
 }
