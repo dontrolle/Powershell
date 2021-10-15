@@ -60,7 +60,7 @@ function Get-ApiLookupValue(){
 }
 
 $NvidiaDownloadPage = "https://www.nvidia.com/Download/index.aspx"
-$NvidiaSearchDriverUrlFormatString = "https://www.nvidia.com/Download/processDriver.aspx?psid={0}&pfid={1}&rpf=1&osid={2}&lid={3}&dtid={4}"
+$NvidiaSearchDriverUrlFormatString = "https://www.nvidia.com/Download/processDriver.aspx?psid={0}&pfid={1}&rpf=1&osid={2}&lid={3}&lang=en-us&ctk=0&dtid={4}&dtcid=1"
 $ApiLookupPage = "https://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeId={0}"
 
 function Find-NvidiaDriverSearchPage()
@@ -131,7 +131,8 @@ function Get-NvidiaInstalledVersion{
     # results in smth like
     # 21.21.13.7557
     # now we pick out the last five digits, which match the ones reported by the driver-version in Windows
-    $installedString = ($installedDriverVersion -replace "\.").Substring(5,5);
+    $idvr = ($installedDriverVersion -replace "\.");
+    $installedString = $idvr.Substring($idvr.Length - 5);
     $installed = $installedString -as [int]
     if($installed -is [int]){
         return $installed
