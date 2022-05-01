@@ -263,6 +263,8 @@ function Test-NvidiaDriver{
             Write-Host "Downloading to your Downloads folder at $downloadsDirectory"
             $downloadPath = Get-Driver -DownloadUrl $driverDownloadUrl -DownloadDirectory $downloadsDirectory
             Write-Host "File downloaded to $downloadPath"
+            Set-Clipboard $downloadPath
+            Write-Host "File path copied to clipboard."
         }
         else{
             Set-Clipboard $driverDownloadUrl
