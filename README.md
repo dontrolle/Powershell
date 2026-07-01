@@ -1,5 +1,7 @@
 # Powershell
 
+*A small toolbox of everyday PowerShell functions.*
+
 [![CI](https://github.com/dontrolle/Powershell/actions/workflows/ci.yml/badge.svg)](https://github.com/dontrolle/Powershell/actions/workflows/ci.yml)
 
 A small collection of standalone PowerShell functions I've written and relied on across several machines over the years. Used together with my [powershell-profile](https://github.com/dontrolle/powershell-profile).
