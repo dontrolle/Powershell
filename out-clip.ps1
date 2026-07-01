@@ -8,24 +8,22 @@
     Use -Verbose to echo files copied.
 .PARAMETER Paths
     One or more file paths.
-.PARAMETER Verbose
-    If given, full paths for all files are echoed to the console.
 .EXAMPLE 
     dir *somepattern* | Out-Clip
 .EXAMPLE 
-    Out-Clip somefile -verbose
+    Out-Clip somefile -Verbose
 .EXAMPLE 
-    dir *somepattern* | Out-Clip somefile -verbose
+    dir *somepattern* | Out-Clip somefile -Verbose
 .NOTES
     Author     : Troels Damgaard
 #>
 function Out-Clip
 {
+    [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
         [Alias("FullName")]
-        [string[]]$Paths,
-        [switch]$Verbose)
+        [string[]]$Paths)
 
     begin {
         $filePaths = @()
@@ -35,9 +33,7 @@ function Out-Clip
         foreach ($path in $Paths) {
             $fullPath = Resolve-Path $path
 
-            if ($Verbose.IsPresent) {
-                Write-Host "Adding $fullPath ..."
-            }
+            Write-Verbose "Adding $fullPath ..."
             $filePaths += $fullPath
         }
     }
@@ -52,7 +48,7 @@ function Out-Clip
                 $pathsCol = New-Object -typeName System.Collections.Specialized.StringCollection
 
                 foreach ($path in $filePaths) {
-                    $ignore = $pathsCol.Add($path)
+                    [void]$pathsCol.Add($path)
                 }
                 $filesNo = $pathsCol.Count
 
@@ -60,14 +56,17 @@ function Out-Clip
                 {
                     [Windows.Forms.Clipboard]::SetFileDropList($pathsCol)
                 }
-                Write-Host "$filesNo files added to clipboard."
+                Write-Information "$filesNo files added to clipboard." -InformationAction Continue
             }
 
             if ($args.Count -eq 0) {
-                $args = @($input)
+                $fileArgs = @($input)
+            }
+            else {
+                $fileArgs = $args
             }
 
-            AddToClipboard($args)
+            AddToClipboard($fileArgs)
         }
 
         $isMTA = [Threading.Thread]::CurrentThread.ApartmentState.ToString() -eq 'MTA'
@@ -81,3 +80,4 @@ function Out-Clip
         }
     }
 }
+

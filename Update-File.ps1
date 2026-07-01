@@ -6,17 +6,24 @@
 #>
 Function Update-File
 {
+    [CmdletBinding(SupportsShouldProcess=$true)]
     Param(
         [Parameter(Mandatory=$true)]
         [string] $File)
 
     if(Test-Path $File)
     {
-        (Get-ChildItem $File).LastWriteTime = Get-Date
+        if ($PSCmdlet.ShouldProcess($File, 'Update LastWriteTime'))
+        {
+            (Get-ChildItem $File).LastWriteTime = Get-Date
+        }
     }
     elseif (Test-Path $File -IsValid)
     {
-        New-Item -ItemType File -Path $File -Force | Out-Null
+        if ($PSCmdlet.ShouldProcess($File, 'Create file'))
+        {
+            New-Item -ItemType File -Path $File -Force | Out-Null
+        }
     }
     else {
         throw "The given file-path:'$File' is not a valid path"
