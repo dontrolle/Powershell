@@ -8,10 +8,12 @@
 function Get-FileDefiningFunction()
 {
     Param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [string] $FunctionName)
 
-    (Get-Command $FunctionName).ScriptBlock.File
+    process {
+        (Get-Command $FunctionName).ScriptBlock.File
+    }
 }
 
 Set-Alias -name gfdf -value Get-FileDefiningFunction

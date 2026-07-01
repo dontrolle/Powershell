@@ -10,18 +10,13 @@ Function Update-File
         [Parameter(Mandatory=$true)]
         [string] $File)
 
-    # $File = $args[0]
-    # if([string]::IsNullOrEmpty($File)) {
-    #     throw "No filename supplied"
-    # }
-
     if(Test-Path $File)
     {
         (Get-ChildItem $File).LastWriteTime = Get-Date
     }
     elseif (Test-Path $File -IsValid)
     {
-        Add-Content -Path $File $null
+        New-Item -ItemType File -Path $File -Force | Out-Null
     }
     else {
         throw "The given file-path:'$File' is not a valid path"

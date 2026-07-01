@@ -21,58 +21,63 @@
 #>
 function Out-Clip
 {
-    param([string[]]$Paths, [switch]$Verbose)
-    
-    $rawPaths = @($input)
-    if($null -ne $Paths) {
-        $rawPaths = $rawPaths + $Paths
+    param(
+        [Parameter(ValueFromPipeline=$true, ValueFromPipelineByPropertyName=$true)]
+        [Alias("FullName")]
+        [string[]]$Paths,
+        [switch]$Verbose)
+
+    begin {
+        $filePaths = @()
     }
 
-    $filePaths = @()
-    
-    foreach ($path in $rawPaths) {
-        $fullPath = Resolve-Path $path
-   
-        if ($Verbose.IsPresent) {
-            Write-Host "Adding $fullPath ..."
+    process {
+        foreach ($path in $Paths) {
+            $fullPath = Resolve-Path $path
+
+            if ($Verbose.IsPresent) {
+                Write-Host "Adding $fullPath ..."
+            }
+            $filePaths += $fullPath
         }
-        $filePaths += $fullPath
     }
-    
-    $funcAdd = 
-    {
-        function AddToClipboard($filePaths)
+
+    end {
+        $funcAdd =
         {
-            Add-Type -Assembly System.Windows.Forms
-
-            $pathsCol = New-Object -typeName System.Collections.Specialized.StringCollection
-
-            foreach ($path in $filePaths) {
-                $ignore = $pathsCol.Add($path)
-            }
-            $filesNo = $pathsCol.Count
-
-            if($filesNo -gt 0)
+            function AddToClipboard($filePaths)
             {
-                [Windows.Forms.Clipboard]::SetFileDropList($pathsCol)
-            }
-            Write-Host "$filesNo files added to clipboard."
-        }
-        
-        if ($args.Count -eq 0) {
-            $args = @($input)
-        }
-        
-        AddToClipboard($args)
-    }
+                Add-Type -Assembly System.Windows.Forms
 
-    $isMTA = [Threading.Thread]::CurrentThread.ApartmentState.ToString() -eq 'MTA'
-    if($isMTA)
-    {
-        $filePaths | Powershell -NoProfile -STA -Command $funcAdd
-    }
-    else
-    {
-        Invoke-Command $funcAdd -ArgumentList $filePaths
+                $pathsCol = New-Object -typeName System.Collections.Specialized.StringCollection
+
+                foreach ($path in $filePaths) {
+                    $ignore = $pathsCol.Add($path)
+                }
+                $filesNo = $pathsCol.Count
+
+                if($filesNo -gt 0)
+                {
+                    [Windows.Forms.Clipboard]::SetFileDropList($pathsCol)
+                }
+                Write-Host "$filesNo files added to clipboard."
+            }
+
+            if ($args.Count -eq 0) {
+                $args = @($input)
+            }
+
+            AddToClipboard($args)
+        }
+
+        $isMTA = [Threading.Thread]::CurrentThread.ApartmentState.ToString() -eq 'MTA'
+        if($isMTA)
+        {
+            $filePaths | Powershell -NoProfile -STA -Command $funcAdd
+        }
+        else
+        {
+            Invoke-Command $funcAdd -ArgumentList $filePaths
+        }
     }
 }
