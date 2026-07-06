@@ -1,6 +1,6 @@
 # Powershell
 
-*A small toolbox of everyday PowerShell functions.*
+*A small toolbox of PowerShell functions.*
 
 [![CI](https://github.com/dontrolle/Powershell/actions/workflows/ci.yml/badge.svg)](https://github.com/dontrolle/Powershell/actions/workflows/ci.yml)
 
